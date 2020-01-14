@@ -151,6 +151,14 @@ export const FIELD_EXTENTS = {
                 zMin: -14.6
            }
 
+// limits for detonations
+export const ROUND_EXTENTS = {
+    xMax: 27.6,
+    xMin: -27.6,
+    zMax: 17.6,
+    zMin: -17.6    
+}
+
 export const GUTTER_WIDTH = 2  // for edge steer
 
 export const edge = {

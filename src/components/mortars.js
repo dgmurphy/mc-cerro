@@ -7,7 +7,7 @@ import { MORTAR_VELOCITY, MORTAR_YPEAK, ROUND_PHASES,
    BLAST_ALPHA, MORTAR_BLAST_RADIUS_START, MORTAR_BLAST_LIFE, 
    GUN_BLAST_LIFE, GUN_BLAST_RADIUS_START,
    POINTS_AGENT_HIT, ARTIFACT_MAX_HEALTH, POINTS_ARTIFACT_HIT,
-   BLAST_DAMAGE_COEFF, GAME_PHASES, PACKAGE_VELOCITY, TERRAIN_MESH_NAME} from './constants.js'
+   BLAST_DAMAGE_COEFF, GAME_PHASES, PACKAGE_VELOCITY, TERRAIN_MESH_NAME, ROUND_EXTENTS} from './constants.js'
 import { destroyAgent, addArtifact } from './agent.js'
 import { handleLevelComplete } from './lifecycle.js'
 import { getAgentMat } from './materials.js'
@@ -35,13 +35,17 @@ function handleKeyPress(e) {
 
 function hasHitGround(pos, scene) {
 
-  // quick check 
-  if (pos.y > 5)
-    return false
 
-  // failsafe check
-  if (pos.y < 0)
+  // check if round has gone beyond the playfield
+  if ( (pos.x > ROUND_EXTENTS.xMax) ||
+       (pos.x > ROUND_EXTENTS.xMax) ||
+       (pos.z > ROUND_EXTENTS.zMax) ||
+       (pos.z < ROUND_EXTENTS.zMin) ||
+       (pos.y < 0)
+  ) {
     return true
+  }
+
 
    // Casting a ray to get height
    let terrainMesh = scene.getMeshByName(TERRAIN_MESH_NAME)
