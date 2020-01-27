@@ -90,7 +90,7 @@ export function loadAssets(scene, updateAssetStatus) {
       //Looks like mesh 0 is the base box
       newMeshes[0].scaling = new  BABYLON.Vector3(1.88, 2,-1.88);
       newMeshes[0].addRotation(0, Math.PI, 0);
-      newMeshes[0].position = new  BABYLON.Vector3(-0,4.5,.5)
+      newMeshes[0].position = new  BABYLON.Vector3(-0,3.5,.5)
 
       var terrain = newMeshes[1]
       terrain.updateFacetData();
