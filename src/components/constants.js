@@ -239,3 +239,5 @@ export  const AGENT_TRAIL_COLOR_DEAD = [0.3, 0.1, 0, 0.0]
 export const WATER_TRAIL_COLOR1 = [.5, .5, 1, 1.0]
 export const WATER_TRAIL_COLOR2 = [.2, .25, .4, 1.0]
 export const WATER_TRAIL_COLOR_DEAD = [0, .1, .3, 1.0]
+
+export const MORTAR_BOOST_LIFE = 1000
