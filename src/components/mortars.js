@@ -2,15 +2,18 @@
 import * as BABYLON from '@babylonjs/core';
 import * as GUI from '@babylonjs/gui/2D'
 import { getXZpos, getAngleOriented, getGroundRange} from './utils'
-import { MORTAR_VELOCITY, MORTAR_YPEAK, ROUND_PHASES,
-   GUN_POSITION, GUN_RANGE, ROUND_TYPES, GUN_VELOCITY, 
-   BLAST_ALPHA, MORTAR_BLAST_RADIUS_START, MORTAR_BLAST_LIFE, 
-   GUN_BLAST_LIFE, GUN_BLAST_RADIUS_START,
-   POINTS_AGENT_HIT, ARTIFACT_MAX_HEALTH, POINTS_ARTIFACT_HIT,
-   BLAST_DAMAGE_COEFF, GAME_PHASES, PACKAGE_VELOCITY, TERRAIN_MESH_NAME, ROUND_EXTENTS} from './constants.js'
+import { MORTAR_VELOCITY, ROUND_PHASES,
+         GUN_POSITION, GUN_RANGE, ROUND_TYPES, GUN_VELOCITY, 
+         BLAST_ALPHA, MORTAR_BLAST_RADIUS_START, MORTAR_BLAST_LIFE, 
+         GUN_BLAST_LIFE, GUN_BLAST_RADIUS_START,
+         POINTS_AGENT_HIT, ARTIFACT_MAX_HEALTH, POINTS_ARTIFACT_HIT,
+         GAME_PHASES, PACKAGE_VELOCITY, ROUND_EXTENTS} from './constants.js'
+import { TERRAIN_MESH_NAME, CHANGE_LIGHT_ON_BLAST, MORTAR_YPEAK} from './per-table-constants.js'
 import { destroyAgent, addArtifact } from './agent.js'
 import { handleLevelComplete } from './lifecycle.js'
 import { getAgentMat } from './materials.js'
+import { updateActivatorColor, activator_activate } from './activators.js'
+
 
 
 export function addFireListener(scene) {
@@ -24,7 +27,7 @@ export function addFireListener(scene) {
 
 function handleKeyPress(e) {
 
-  if ( (e.which === 90) || (e.which === 77) ) {
+  if ( (e.which === 90) || (e.which === 77) || (e.which === 81) ) {
     fireRound(e)
   } else if( e.which === 32) {
     fireThePackage(e)
@@ -35,6 +38,9 @@ function handleKeyPress(e) {
 
 function hasHitGround(pos, scene) {
 
+  // quick check 
+  if (pos.y > 5)
+    return false
 
   // check if round has gone beyond the playfield
   if ( (pos.x > ROUND_EXTENTS.xMax) ||
@@ -143,8 +149,9 @@ export function updateThePackage(scene) {
 
     if (tp.blastAge > tp.blastLife) {  // end of life
 
-      scene.getLightByName("light1").diffuse = new BABYLON.Color3.White
-      //scene.clearColor = new BABYLON.Color3(0.38, 0.36, 0.41);
+      if (CHANGE_LIGHT_ON_BLAST)
+      	scene.getLightByName("light1").diffuse = new BABYLON.Color3.White
+
 
       tp.blastAge = 0
       tp.phase = ROUND_PHASES.ready
@@ -176,8 +183,8 @@ export function updateThePackage(scene) {
 
       if (hasHitGround(tp.pos, scene)) {
 
-        scene.getLightByName("light1").diffuse = new BABYLON.Color3(1,.8, 0.8)
-        //scene.clearColor = new BABYLON.Color3.Red
+	if (CHANGE_LIGHT_ON_BLAST)
+        	scene.getLightByName("light1").diffuse = new BABYLON.Color3(1,.8, 0.8)
 
         scene.getSoundByName("heavyMortar").play() 
         tp.phase = ROUND_PHASES.detonated
@@ -197,9 +204,7 @@ export function updateThePackage(scene) {
 
   }
 
-      /*
-      TODO Update damage to agents and artifacts
-    */
+   
    let range
 
     for (var agent of scene.agents) { // update agent damage
@@ -208,7 +213,7 @@ export function updateThePackage(scene) {
 
       if (range < tp.blastRadiusCurrent) {
 
-        agent.health -= (tp.blastRadiusCurrent - range) * BLAST_DAMAGE_COEFF * .065
+        agent.health -= (tp.blastRadiusCurrent - range) * scene.BLAST_DAMAGE_COEFF * .065
         updateAgentColor(agent, scene)
         scene.gameScore += POINTS_AGENT_HIT 
 
@@ -226,7 +231,7 @@ export function updateThePackage(scene) {
       if (artifact.detected === true) {   // artifact is visible
         range = BABYLON.Vector3.Distance(artifact.pos, tp.pos)
         if (range < tp.blastRadiusCurrent) {
-          artifact.health -= (tp.blastRadiusCurrent - range) * BLAST_DAMAGE_COEFF * .065
+          artifact.health -= (tp.blastRadiusCurrent - range) * scene.BLAST_DAMAGE_COEFF * .065
           updateArtifactColor(artifact, scene)
           scene.gameScore += POINTS_ARTIFACT_HIT
 
@@ -254,7 +259,6 @@ export function updateRounds(scene) {
         round.meshes.body.position = round.pos
         round.blastRadiusCurrent = 0
         scene.roundsReady += 1
-        ///round.meshes.target.isVisible = false
         round.meshes.target.dispose()
         round.meshes.blast.setEnabled(false)
         round.meshes.particles.stop()
@@ -315,7 +319,7 @@ export function updateRounds(scene) {
 
       if (range < round.blastRadiusCurrent) {
 
-        agent.health -= (round.blastRadiusCurrent - range) * BLAST_DAMAGE_COEFF 
+        agent.health -= (round.blastRadiusCurrent - range) * scene.BLAST_DAMAGE_COEFF 
         updateAgentColor(agent, scene)
         scene.gameScore += POINTS_AGENT_HIT 
         scene.packagePoints += POINTS_AGENT_HIT 
@@ -335,7 +339,7 @@ export function updateRounds(scene) {
       if (artifact.detected === true) {   // artifact is visible
         range = BABYLON.Vector3.Distance(artifact.pos, round.pos)
         if (range < round.blastRadiusCurrent) {
-          artifact.health -= (round.blastRadiusCurrent - range) * BLAST_DAMAGE_COEFF 
+          artifact.health -= (round.blastRadiusCurrent - range) * scene.BLAST_DAMAGE_COEFF 
           updateArtifactColor(artifact, scene)
           scene.gameScore += POINTS_ARTIFACT_HIT
           scene.packagePoints += POINTS_ARTIFACT_HIT
@@ -345,6 +349,19 @@ export function updateRounds(scene) {
         }
       }
     }
+
+    // update activator fuses
+    for (var activator of scene.activators) {  
+      range = BABYLON.Vector3.Distance(activator.core.position, round.pos)
+      if (range < round.blastRadiusCurrent) {
+        activator.fusecount += (round.blastRadiusCurrent - range) * scene.BLAST_DAMAGE_COEFF 
+        updateActivatorColor(activator, scene)
+      }
+
+      if(activator.fusecount > activator.fusetrigger)
+        activator_activate(activator, scene)
+    }
+   
 
   } // for each round
 
@@ -416,7 +433,6 @@ function fireRound(e) {
 
     let mesh = round.meshes.bullet
     let rotationVec = new BABYLON.Vector3(0, -heading, -declination)
-    //mesh.rotate(BABYLON.Axis.Z, declination, BABYLON.Space.LOCAL);
     mesh.rotation = rotationVec
 
     // rotate the particles origin
@@ -525,7 +541,7 @@ function renderFireTarget(scene, minRange) {
 }
 
 
-function killArtifact(artifact, scene) {
+export function killArtifact(artifact, scene) {
 
   const hasName = (obj) => obj.name === artifact.name
   const idx = scene.artifacts.findIndex( hasName )
@@ -545,7 +561,7 @@ function killArtifact(artifact, scene) {
 }
 
 
-function killAgent(agent, scene) {
+export function killAgent(agent, scene) {
 
   destroyAgent(agent, scene)
   const hasName = (obj) => obj.name === agent.name
@@ -564,7 +580,7 @@ function killAgent(agent, scene) {
 
 }
 
-function updateAgentColor(agent, scene) {
+export function updateAgentColor(agent, scene) {
 
   agent.meshes.body.material = getAgentMat(scene, agent.health)
 
@@ -575,7 +591,7 @@ function updateAgentColor(agent, scene) {
 
 }
 
-function updateArtifactColor(artifact, scene) {
+export function updateArtifactColor(artifact, scene) {
 
   let h = artifact.health
   let minorDamage = ARTIFACT_MAX_HEALTH * (2/3)
